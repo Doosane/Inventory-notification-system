@@ -27,11 +27,14 @@ public class NotificationService {
 
     @Transactional
     public ProductNotificationHistoryDTO sendRestockNotification(Long productId) { // 재입고 알림 전송
-
         // 상품 ID로 상품 조회. 없으면 예외 발생.
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("상품을 찾을 수 없습니다."));
         log.info("조회된 상품: {}", product);
+
+        if (product.getRestockRound() == 0) {
+            throw new IllegalStateException("재고가 소진되어 알림을 보낼 수 없습니다."); // IllegalStateException 예외처리
+        }
 
         // 상품의 재입고 회차 증가
         product.setRestockRound(product.getRestockRound() + 1);
