@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
         log.error("NOT_FOUND: {}", ex.getMessage());
-        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "해당 정보를 확인할 수 없습니다.");
+        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "재입고 알림 기록이 존재하지 않습니다.");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
@@ -58,7 +58,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ErrorResponse> handleIllegalStateException(IllegalStateException ex) {
         log.error("BAD_REQUEST: {}", ex.getMessage());
-        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "올바른 요청 방식이 아닙니다.");
+        ErrorResponse errorResponse = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "알림을 받을 활성화된 사용자가 없습니다.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
