@@ -1,24 +1,34 @@
 package com.doosan.notification.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+@Entity
 @Getter
 @Setter
-@Entity
 @NoArgsConstructor
+@Table(name = "product") // 테이블 이름 명시적으로 지정
 public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // 상품 ID
+    private Long id;
 
-    private int restockRound; // 재입고 회차
+    @Column(name = "restock_round", nullable = false)
+    private int restockRound;
 
-    private String productName; // 상품이름
+    @Column(name = "product_name", nullable = false)
+    private String productName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "stock_status", nullable = false)
+    private StockStatus stockStatus;
+
+    public enum StockStatus {
+        IN_STOCK,
+        OUT_OF_STOCK
+    }
 }
+

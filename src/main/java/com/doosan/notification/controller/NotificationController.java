@@ -17,11 +17,19 @@ public class NotificationController {
         this.notificationService = notificationService;
     }
 
-    // 특정 상품 ID에 대해 재입고 알림 전송
+    // 재입고 알림 전송 API
     @PostMapping("/{productId}/notifications/re-stock")
     public ResponseEntity<ProductNotificationHistoryDTO> sendRestockNotification(@PathVariable Long productId) {
-        log.info("Received productId: {}", productId);
+        log.info("Processing restock notification for productId: {}", productId);
         ProductNotificationHistoryDTO result = notificationService.sendRestockNotification(productId);
         return ResponseEntity.ok(result);
+    }
+
+    // 수동 재입고 알림 전송 API
+    @PostMapping("/admin/{productId}/notifications/re-stock")
+    public ResponseEntity<Void> sendRestockNotificationManually(@PathVariable Long productId) {
+        log.info("Manually processing restock notification for productId: {}", productId);
+        notificationService.sendRestockNotificationManually(productId);
+        return ResponseEntity.ok().build();
     }
 }
