@@ -4,6 +4,7 @@ import com.doosan.notification.dto.ProductNotificationHistoryDTO;
 import com.doosan.notification.entity.*;
 import com.doosan.notification.exception.ResourceNotFoundException;
 import com.doosan.notification.repository.*;
+import com.doosan.notification.util.NotificationRateLimiter;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,18 +18,21 @@ public class NotificationService {
     private final ProductNotificationHistoryRepository notificationHistoryRepository;
     private final ProductUserNotificationRepository userNotificationRepository;
     private final ProductUserNotificationHistoryRepository userNotificationHistoryRepository;
+    private final NotificationRateLimiter notificationRateLimiter;
 
     public NotificationService(ProductRepository productRepository,
                                ProductNotificationHistoryRepository notificationHistoryRepository,
                                ProductUserNotificationRepository userNotificationRepository,
-                               ProductUserNotificationHistoryRepository userNotificationHistoryRepository) {
+                               ProductUserNotificationHistoryRepository userNotificationHistoryRepository,
+                               NotificationRateLimiter notificationRateLimiter) {
+
         this.productRepository = productRepository;
         this.notificationHistoryRepository = notificationHistoryRepository;
         this.userNotificationRepository = userNotificationRepository;
         this.userNotificationHistoryRepository = userNotificationHistoryRepository;
+        this.notificationRateLimiter = notificationRateLimiter;
     }
 
-    // 재입고 알림 전송
     // 재입고 알림 전송
     @Transactional
     public ProductNotificationHistoryDTO sendRestockNotification(Long productId) {
@@ -61,21 +65,32 @@ public class NotificationService {
 
         for (ProductUserNotification userNotification : userNotifications) {
             try {
+                // 알림 속도 제한 체크
+                if (!notificationRateLimiter.tryAcquire()) {
+                    log.warn("알림 속도 제한 초과 - userId: {}, productId: {}", userNotification.getUserId(), productId);
+                    throw new IllegalStateException("알림 속도 제한 초과");
+                }
+
                 log.info("사용자 알림 처리 - userId: {}, productId: {}", userNotification.getUserId(), productId);
                 if (checkStockAvailability(product)) {
                     log.debug("재고 확인 완료 - productId: {}, 재고 상태: {}", productId, product.getStockStatus());
+
+                    // 사용자 알림 전송
                     sendNotification(userNotification, product);
 
+                    // 알림 기록 업데이트
                     lastNotifiedUserId = userNotification.getUserId();
                     notificationHistory.setLastNotifiedUserId(lastNotifiedUserId);
                     notificationHistoryRepository.save(notificationHistory);
                     log.info("사용자 알림 성공 - userId: {}, productId: {}", userNotification.getUserId(), productId);
+
                 } else {
                     log.warn("재고 부족으로 알림 중단 - productId: {}", productId);
                     notificationHistory.setNotificationStatus("CANCELED_BY_SOLD_OUT");
                     notificationHistoryRepository.save(notificationHistory);
                     break;
                 }
+
             } catch (Exception e) {
                 log.error("알림 전송 중 예외 발생 - userId: {}, productId: {}, 에러: {}",
                         userNotification.getUserId(), productId, e.getMessage(), e);
@@ -148,6 +163,11 @@ public class NotificationService {
     private void sendNotification(ProductUserNotification userNotification, Product product) {
         log.info("알림 전송 시작 - userId: {}, productId: {}", userNotification.getUserId(), product.getId());
 
+//        if (!notificationRateLimiter.tryAcquire()) {
+//            log.warn("알림 속도 제한 초과 - userId: {}, productId: {}", userNotification.getUserId(), product.getId());
+//            throw new IllegalStateException("알림 속도 제한 초과");
+//        }
+
         ProductUserNotificationHistory userNotificationHistory = new ProductUserNotificationHistory();
         userNotificationHistory.setProduct(product);
         userNotificationHistory.setUserNotification(userNotification);
@@ -161,7 +181,7 @@ public class NotificationService {
     // 재고 확인 (모의 로직)
     private boolean checkStockAvailability(Product product) {
         log.debug("재고 확인 중 - productId: {}, 재고 상태: {}", product.getId(), product.getStockStatus());
-        return true; // 예제에서는 항상 재고가 있다고 가정
+        return true;
     }
 
     // DTO 변환
