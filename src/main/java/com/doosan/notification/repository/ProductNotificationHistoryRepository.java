@@ -12,5 +12,7 @@ import java.util.Optional;
 @Repository
 public interface ProductNotificationHistoryRepository extends JpaRepository<ProductNotificationHistory, Long> {
     Optional<ProductNotificationHistory> findTopByProductOrderByRestockRoundDesc(Product product);
+
+    ProductNotificationHistory findByProductId(Long id);
 }
 

@@ -10,12 +10,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Random;
 
 @Slf4j
 @Service
 public class NotificationService {
     private final ProductRepository productRepository;
     private final ProductNotificationHistoryRepository notificationHistoryRepository;
+    private final ProductStockRepository productStockRepository;
     private final ProductUserNotificationRepository userNotificationRepository;
     private final ProductUserNotificationHistoryRepository userNotificationHistoryRepository;
     private final NotificationRateLimiter notificationRateLimiter;
@@ -24,6 +26,7 @@ public class NotificationService {
                                ProductNotificationHistoryRepository notificationHistoryRepository,
                                ProductUserNotificationRepository userNotificationRepository,
                                ProductUserNotificationHistoryRepository userNotificationHistoryRepository,
+                               ProductStockRepository productStockRepository,
                                NotificationRateLimiter notificationRateLimiter) {
 
         this.productRepository = productRepository;
@@ -31,91 +34,96 @@ public class NotificationService {
         this.userNotificationRepository = userNotificationRepository;
         this.userNotificationHistoryRepository = userNotificationHistoryRepository;
         this.notificationRateLimiter = notificationRateLimiter;
+        this.productStockRepository = productStockRepository;
     }
 
-    // 재입고 알림 전송
+    // 재입고 알림 전송 오후 5:52 , 재고 수정
     @Transactional
     public ProductNotificationHistoryDTO sendRestockNotification(Long productId) {
         log.info("재입고 알림 전송 시작 - productId: {}", productId);
 
+        // 상품 확인
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> {
-                    log.error("상품 존재하지 않음 - productId: {}", productId);
-                    return new ResourceNotFoundException("상품이 존재하지 않습니다.");
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("상품이 존재하지 않습니다."));
 
-        log.info("상품 확인 완료 - productId: {}, 상품명: {}, 재입고 회차: {}",
-                product.getId(), product.getProductName(), product.getRestockRound());
+        // 재고 확인
+        ProductStock productStock = productStockRepository.findByProductId(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("재고 정보가 존재하지 않습니다."));
 
+        // 재입고 회차 증가
         product.setRestockRound(product.getRestockRound() + 1);
         productRepository.save(product);
-        log.info("재입고 회차 증가 - productId: {}, 새로운 회차: {}", productId, product.getRestockRound());
 
+        // 알림 기록 초기화
         ProductNotificationHistory notificationHistory = new ProductNotificationHistory();
         notificationHistory.setProduct(product);
         notificationHistory.setRestockRound(product.getRestockRound());
         notificationHistory.setNotificationStatus("IN_PROGRESS");
         notificationHistoryRepository.save(notificationHistory);
-        log.info("재입고 알림 기록 생성 - notificationHistoryId: {}", notificationHistory.getId());
 
+        // 알림 대상 사용자 가져오기
         List<ProductUserNotification> userNotifications = userNotificationRepository.findByProductIdAndIsActiveTrue(productId);
-        log.info("활성화된 알림 사용자 수 - productId: {}, 사용자 수: {}", productId, userNotifications.size());
-
-        Long lastNotifiedUserId = null;
-
-        for (ProductUserNotification userNotification : userNotifications) {
-            try {
-                // 알림 속도 제한 체크
-                if (!notificationRateLimiter.tryAcquire()) {
-                    log.warn("알림 속도 제한 초과 - userId: {}, productId: {}", userNotification.getUserId(), productId);
-                    throw new IllegalStateException("알림 속도 제한 초과");
-                }
-
-                log.info("사용자 알림 처리 - userId: {}, productId: {}", userNotification.getUserId(), productId);
-                if (checkStockAvailability(product)) {
-                    log.debug("재고 확인 완료 - productId: {}, 재고 상태: {}", productId, product.getStockStatus());
-
-                    // 사용자 알림 전송
-                    sendNotification(userNotification, product);
-
-                    // 알림 기록 업데이트
-                    lastNotifiedUserId = userNotification.getUserId();
-                    notificationHistory.setLastNotifiedUserId(lastNotifiedUserId);
-                    notificationHistoryRepository.save(notificationHistory);
-                    log.info("사용자 알림 성공 - userId: {}, productId: {}", userNotification.getUserId(), productId);
-
-                } else {
-                    log.warn("재고 부족으로 알림 중단 - productId: {}", productId);
-                    notificationHistory.setNotificationStatus("CANCELED_BY_SOLD_OUT");
-                    notificationHistoryRepository.save(notificationHistory);
-                    break;
-                }
-
-            } catch (Exception e) {
-                log.error("알림 전송 중 예외 발생 - userId: {}, productId: {}, 에러: {}",
-                        userNotification.getUserId(), productId, e.getMessage(), e);
-                notificationHistory.setNotificationStatus("CANCELED_BY_ERROR");
-                notificationHistoryRepository.save(notificationHistory);
-                throw e;
-            }
-        }
 
         if (userNotifications.isEmpty()) {
-            log.warn("활성화된 알림 사용자가 없음 - productId: {}", productId);
-            throw new IllegalStateException("알림을 받을 활성화된 사용자가 없습니다.");
+            notificationHistory.setNotificationStatus("NO_ACTIVE_USERS");
+            notificationHistoryRepository.save(notificationHistory);
+            throw new IllegalStateException("활성화된 알림 사용자가 없습니다.");
         }
 
-        if (lastNotifiedUserId == null) {
-            notificationHistory.setNotificationStatus("NO_ACTIVE_USERS");
-            log.info("활성화된 사용자 없음 - productId: {}", productId);
-        } else {
+        // 랜덤 객체 생성
+        Random random = new Random();
+
+        // 알림 전송 및 재고 감소
+        try {
+            for (ProductUserNotification userNotification : userNotifications) {
+                // 알림 전송
+                sendNotification(userNotification, product);
+
+                // 랜덤 구매 여부 (50% 확률)
+                boolean willBuy = random.nextBoolean();
+
+                if (willBuy) {
+                    log.info("사용자가 상품 구매 결정 - userId: {}", userNotification.getUserId());
+
+                    // 재고 감소
+                    if (productStock.getStockQuantity() <= 0) {
+                        notificationHistory.setNotificationStatus("CANCELED_BY_SOLD_OUT");
+                        notificationHistoryRepository.save(notificationHistory);
+                        log.warn("재고 부족으로 알림 중단 - productId: {}", productId);
+                        return convertToDto(notificationHistory);
+                    }
+                    productStock.setStockQuantity(productStock.getStockQuantity() - 1);
+                    productStockRepository.save(productStock);
+
+                } else {
+                    log.info("사용자가 상품 구매하지 않음 - userId: {}", userNotification.getUserId());
+                    // 재고 감소
+                    if (productStock.getStockQuantity() <= 0) {
+                        notificationHistory.setNotificationStatus("CANCELED_BY_SOLD_OUT");
+                        notificationHistoryRepository.save(notificationHistory);
+                        log.warn("재고 부족으로 알림 중단 - productId: {}", productId);
+                        return convertToDto(notificationHistory);
+                    }
+                }
+
+                // 알림 성공 기록
+                notificationHistory.setLastNotifiedUserId(userNotification.getUserId());
+                notificationHistoryRepository.save(notificationHistory);
+            }
+
+            // 모든 알림 완료
             notificationHistory.setNotificationStatus("COMPLETED");
-            log.info("재입고 알림 전송 완료 - productId: {}, 마지막 사용자: {}", productId, lastNotifiedUserId);
+            notificationHistoryRepository.save(notificationHistory);
+        } catch (Exception e) {
+            notificationHistory.setNotificationStatus("CANCELED_BY_ERROR");
+            notificationHistoryRepository.save(notificationHistory);
+            log.error("알림 전송 중 예외 발생 - productId: {}, 에러: {}", productId, e.getMessage(), e);
+            throw e;
         }
-        notificationHistoryRepository.save(notificationHistory);
 
         return convertToDto(notificationHistory);
     }
+
 
     // 수동 재입고 알림 전송
     @Transactional
@@ -178,7 +186,7 @@ public class NotificationService {
         log.info("알림 히스토리 저장 완료 - userId: {}, productId: {}", userNotification.getUserId(), product.getId());
     }
 
-    // 재고 확인 (모의 로직)
+    // 재고 확인
     private boolean checkStockAvailability(Product product) {
         log.debug("재고 확인 중 - productId: {}, 재고 상태: {}", product.getId(), product.getStockStatus());
         return true;
