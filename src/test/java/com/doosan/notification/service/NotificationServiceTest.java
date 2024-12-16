@@ -36,7 +36,7 @@ public class NotificationServiceTest {
     public void testSendRestockNotification_Success() {
         Product product = new Product();
         product.setId(1L);
-        product.setProductName("테스트 상품");
+
         product.setRestockRound(3); // 초기 재입고 회차는 3
         when(productRepository.findById(1L)).thenReturn(Optional.of(product)); // 상품 조회 성공 시 Mock 응답 설정
         when(notificationHistoryRepository.save(any(ProductNotificationHistory.class))).thenAnswer(invocation -> {
@@ -70,7 +70,7 @@ public class NotificationServiceTest {
     public void testSendRestockNotification_CanceledBySoldOut() {
         Product product = new Product();
         product.setId(1L);
-        product.setProductName("테스트 상품");
+
         product.setRestockRound(0); // 재고 없음
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
         IllegalStateException exception = assertThrows(
@@ -86,7 +86,7 @@ public class NotificationServiceTest {
     public void testSendRestockNotification_StatusCanceledByError() {
         Product product = new Product();
         product.setId(1L);
-        product.setProductName("테스트 상품");
+
         product.setRestockRound(2);
         when(productRepository.findById(1L)).thenReturn(Optional.of(product)); // 상품 조회 성공
         doThrow(new RuntimeException("서드파티 예외")).when(notificationHistoryRepository).save(any()); // 알림 기록 저장 시 예외 발생 설정
@@ -104,7 +104,7 @@ public class NotificationServiceTest {
         // 재입고 회차가 올바르게 증가하는지 검증
         Product product = new Product();
         product.setId(1L);
-        product.setProductName("테스트 상품");
+
         product.setRestockRound(3);
         when(productRepository.findById(1L)).thenReturn(Optional.of(product)); // 상품 조회 성공
         when(notificationHistoryRepository.save(any(ProductNotificationHistory.class))).thenAnswer(invocation -> {
@@ -123,7 +123,7 @@ public class NotificationServiceTest {
     public void testSendRestockNotification_SaveNotificationHistory() {
         Product product = new Product();
         product.setId(1L);
-        product.setProductName("테스트 상품");
+
         product.setRestockRound(1);
         when(productRepository.findById(1L)).thenReturn(Optional.of(product)); // 상품 조회 성공
         when(notificationHistoryRepository.save(any(ProductNotificationHistory.class))).thenAnswer(invocation -> {
@@ -157,7 +157,7 @@ public class NotificationServiceTest {
 
         Product product = new Product();
         product.setId(1L);
-        product.setProductName("테스트 상품");
+
         product.setRestockRound(3);
         when(productRepository.findById(1L)).thenReturn(Optional.of(product)); // 상품 조회 성공
         when(notificationHistoryRepository.save(any(ProductNotificationHistory.class))).thenAnswer(invocation -> {
