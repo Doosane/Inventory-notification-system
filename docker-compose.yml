@@ -4,7 +4,7 @@ services:
     container_name: notification_mysql
     environment:
       MYSQL_ROOT_PASSWORD: admin12345
-      MYSQL_DATABASE: review
+      MYSQL_DATABASE: inventory_notification
       MYSQL_USER: root
       MYSQL_PASSWORD: admin12345
     ports:
