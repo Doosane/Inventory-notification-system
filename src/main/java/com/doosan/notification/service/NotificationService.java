@@ -78,14 +78,16 @@ public class NotificationService {
     }
 
     // 상품 존재 여부 검증
-    private Product validateProduct(Long productId) {
-        return productRepository.findById(productId)
+    Product validateProduct(Long productId) {
+        return productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("상품이 존재하지 않습니다."));
     }
 
+
     // 재고 정보 검증
+    // 재고를 업데이트할 때 비관적 락을 적용하여 동시에 수정하지 않도록
     private ProductStock validateProductStock(Long productId) {
-        return productStockRepository.findByProductId(productId)
+        return productStockRepository.findByProductIdForUpdate(productId) // 재고 감소 시 비관적 락 사용
                 .orElseThrow(() -> new ResourceNotFoundException("재고 정보가 존재하지 않습니다."));
     }
 
