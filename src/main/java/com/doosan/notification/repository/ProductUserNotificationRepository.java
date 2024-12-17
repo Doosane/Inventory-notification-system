@@ -10,6 +10,7 @@ import java.util.List;
 
 @Repository
 public interface ProductUserNotificationRepository extends JpaRepository<ProductUserNotification, Long> {
+
     @Query("SELECT pun FROM ProductUserNotification pun WHERE pun.product.id = :productId AND pun.isActive = true")
     List<ProductUserNotification> findByProductIdAndIsActiveTrue(@Param("productId") Long productId);
 
