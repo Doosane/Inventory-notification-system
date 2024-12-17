@@ -47,6 +47,10 @@ https://github.com/Doosane/Inventory-notification-system/issues?q=is%3Aissue+is%
 | #24      | 만 개의 알림 리퀘스트 전송 클래스 작성  | `enhancement`    | 대량 알림 요청을 처리하는 클래스 추가.         |
 
 ---
+## 🔍 **ERD**
+![image](https://github.com/user-attachments/assets/25ef65e2-7804-483e-95c7-ddb94e6952a6)
+
+
 
 ## 🔍 **테스트 및 검증**
 
