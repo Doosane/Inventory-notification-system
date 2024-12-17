@@ -1,4 +1,4 @@
-# 🚀 Corporate Assignment02 - Notification Service
+# 🚀 Corporate Assignment02 - Inventory-notification-system
 
 ## **프로젝트 설명**
 **알림 전송 API**를 구현하고 **성능강화 및 예외 처리**를 꼼꼼하게 진행했습니다.
