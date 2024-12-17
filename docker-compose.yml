@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   mysql:
     image: mysql:8.0
@@ -21,11 +23,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: notification_app
+    container_name: inventory_notification
+
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/inventory_notification
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: admin12345
+      SPRING_PROFILES_ACTIVE: dev
+
+
     ports:
       - "8080:8080"
     depends_on:
